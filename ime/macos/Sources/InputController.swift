@@ -13,6 +13,8 @@ import InputMethodKit
 // - 設定は、入力メニュー（メニューバーの「漢」）の「設定…」から（Settings.swift）。
 // 確定した変換のうち、使う人が候補を選び直した文節だけを ime/server.py に覚えさせる（学習、elvezjp/ixv-lm#11）。
 // 予測変換とライブ変換は、メインスレッドで待たずに問い合わせ、返ってきたら表示を直す。古い返事は捨てる（elvezjp/ixv-lm#7）。
+// スペースで変換したら、まず検算なしの結果（ライブ変換の返事があればそれ）をすぐ出し、
+// 検算ありの返事が来たら差し替える。それまでに候補を選び直していれば、返事は捨てる（elvezjp/ixv-lm#2）。
 @objc(IXVInputController)
 class IXVInputController: IMKInputController {
     private struct Segment {
@@ -32,6 +34,10 @@ class IXVInputController: IMKInputController {
     private var predictions: [String] = []
     private var predIndex = -1       // Tab で選んでいる予測の番号
     private var live = ""            // ライブ変換の表示
+    private var liveReply: [Server.Reply] = []  // ライブ変換の返事（検算なし）と、その読み
+    private var liveKana = ""
+    private var refining = 0         // 検算ありの返事を待っている変換の番号（0 は待っていない）
+    private var conversions = 0      // スペースで変換するたびに増やす
     private var generation = 0       // 打つたびに増やす。古い問い合わせの返事を捨てるのに使う
     private var context: String { Settings.useContext ? Self.context : "" }
 
@@ -165,6 +171,7 @@ class IXVInputController: IMKInputController {
             predIndex = -1
             predictions = []
             live = ""
+            liveReply = []
             generation += 1
             let text = kana + Romaji.flush(pending), g = generation
             // 返事が来たときに、まだ同じ打ちかけなら表示を直す
@@ -180,6 +187,8 @@ class IXVInputController: IMKInputController {
                 Server.convert(context: context, kana: text, segments: nil, fast: true) { [weak self] reply in
                     guard let self = self, current(), self.predIndex < 0 else { return }
                     self.live = reply.map { $0.candidates.first ?? $0.kana }.joined()
+                    self.liveReply = reply
+                    self.liveKana = text
                     self.show(client, refresh: false)
                 }
             }
@@ -214,14 +223,32 @@ class IXVInputController: IMKInputController {
     private func convert(_ client: IMKTextInput) {
         kana += Romaji.flush(pending)
         pending = ""
-        segments = request(kana: kana, lengths: nil, extraContext: "")
+        // まず検算なしの結果をすぐ出す。ライブ変換の返事が同じ読みなら、それを使う
+        let quick = !liveReply.isEmpty && liveKana == kana
+            ? liveReply.map { Segment(kana: $0.kana, candidates: $0.candidates) }
+            : request(kana: kana, lengths: nil, extraContext: "", fast: true)
+        segments = quick
         focus = 0
+        conversions += 1
+        refining = 0
         show(client)
+        guard Settings.useModel else { return }
+        // 検算ありの変換を待たずに問い合わせ、返事が来たら、まだ選び直していなければ差し替える
+        let n = conversions, reading = kana
+        refining = n
+        Server.convert(context: context, kana: reading, segments: nil, fast: false, timeout: 8) { [weak self] reply in
+            guard let self = self, self.refining == n, self.converting, self.kana == reading else { return }
+            self.refining = 0
+            guard !reply.isEmpty else { return }
+            self.segments = reply.map { Segment(kana: $0.kana, candidates: $0.candidates) }
+            self.focus = min(self.focus, self.segments.count - 1)
+            self.show(client)
+        }
     }
 
-    private func request(kana: String, lengths: [Int]?, extraContext: String) -> [Segment] {
+    private func request(kana: String, lengths: [Int]?, extraContext: String, fast: Bool? = nil) -> [Segment] {
         let reply = Server.convert(context: context + extraContext, kana: kana, segments: lengths,
-                                   fast: !Settings.useModel)
+                                   fast: fast ?? !Settings.useModel)
         if reply.isEmpty {
             return [Segment(kana: kana, candidates: Variants.basic(kana))]
         }
@@ -233,6 +260,7 @@ class IXVInputController: IMKInputController {
         guard count > 0 else { return }
         segments[focus].index = (i + count) % count
         segments[focus].chosen = true
+        refining = 0  // 選び直したら、検算の返事で差し替えない
         show(client)
     }
 
@@ -246,6 +274,7 @@ class IXVInputController: IMKInputController {
         let rest = segments[focus...].map { $0.kana }.joined()
         let length = segments[focus].kana.count + d
         guard length >= 1, length <= rest.count else { return }
+        refining = 0  // 文節の区切りを変えたら、検算の返事で差し替えない
         let head = String(rest.prefix(length)), tail = String(rest.dropFirst(length))
         let prior = segments[..<focus].map { $0.text }.joined()
         var updated = Array(segments[..<focus])
@@ -258,6 +287,7 @@ class IXVInputController: IMKInputController {
     }
 
     private func backToKana(_ client: IMKTextInput) {
+        refining = 0
         segments = []
         focus = 0
         show(client)
@@ -275,6 +305,7 @@ class IXVInputController: IMKInputController {
         case 101: text = Variants.fullWidth(typed.isEmpty ? all : typed) // F9
         default: text = typed.isEmpty ? all : typed                   // F10
         }
+        refining = 0
         segments = [Segment(kana: all, candidates: [text])]
         focus = 0
         show(client)
@@ -287,6 +318,7 @@ class IXVInputController: IMKInputController {
         pending = ""
         typed = ""
         segments = []
+        refining = 0
         show(client)
     }
 
@@ -314,6 +346,8 @@ class IXVInputController: IMKInputController {
         predictions = []
         predIndex = -1
         live = ""
+        liveReply = []
+        refining = 0
         generation += 1
         CandidatesPanel.shared.hide()
     }
@@ -415,15 +449,15 @@ enum Server {
         }
     }
 
-    /// 変換して返事を待つ（スペースで変換したとき）
+    /// 変換して返事を待つ（スペースで変換したときの検算なしの結果と、文節を伸び縮みしたとき）
     static func convert(context: String, kana: String, segments: [Int]?, fast: Bool = false) -> [Reply] {
         replies(post("/convert", convertBody(context, kana, segments, fast)))
     }
 
-    /// 変換して、返事が来たら done を呼ぶ（ライブ変換。打つたびに呼ぶので待たない）
-    static func convert(context: String, kana: String, segments: [Int]?, fast: Bool,
+    /// 変換して、返事が来たら done を呼ぶ（ライブ変換と、スペースで変換したあとの検算。待たない）
+    static func convert(context: String, kana: String, segments: [Int]?, fast: Bool, timeout: TimeInterval = 2,
                         done: @escaping ([Reply]) -> Void) {
-        send("/convert", convertBody(context, kana, segments, fast), timeout: 2) { done(replies($0)) }
+        send("/convert", convertBody(context, kana, segments, fast), timeout: timeout) { done(replies($0)) }
     }
 
     static func learn(kana: String, surface: String) {
