@@ -13,7 +13,6 @@
 """
 import bisect
 import datetime
-from array import array
 import json
 import math
 import re
@@ -21,6 +20,7 @@ from collections import defaultdict
 from pathlib import Path
 
 import mlx.core as mx
+import mlx.nn as nn
 import numpy as np
 from sudachipy import Dictionary, SplitMode
 from tokenizers import Tokenizer
@@ -29,94 +29,18 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "train"))
 from model import LM, ModelConfig  # noqa: E402
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import dictfile  # noqa: E402
+
 HIRA_TO_KATA = {chr(c): chr(c + 0x60) for c in range(0x3041, 0x3097)}
 KATA_TO_HIRA = {v: k for k, v in HIRA_TO_KATA.items()}
 ATTACH = {"助詞", "助動詞", "接尾辞", "補助記号"}  # 前の語にくっつけて 1 文節にする品詞
 MAX_WORD = 16       # 辞書を引く読みの長さの上限
 UNKNOWN = -16.0     # 辞書に無い 1 字の確からしさ（対数）
+MLX_CACHE_MB = 32   # MLX が取っておくメモリの上限（MB）
 DIGITS = re.compile(r"[0-9０-９]+")
 ALNUM = re.compile(r"[A-Za-z0-9０-９Ａ-Ｚａ-ｚ]+")
 KATA_RUN = re.compile(r"[ァ-ヶー]+")
-
-
-class Strings:
-    """文字列の並び。何十万もの str を作らず、UTF-8 のバイト列と終わりの位置の配列で持つ（elvezjp/ixv-lm#1）。"""
-
-    def __init__(self):
-        self.blob, self.ends = bytearray(), array("q")
-
-    def append(self, s):
-        self.blob += s.encode("utf-8")
-        self.ends.append(len(self.blob))
-
-    def freeze(self):
-        self.blob = bytes(self.blob)
-
-    def __len__(self):
-        return len(self.ends)
-
-    def __getitem__(self, i):
-        return self.blob[self.ends[i - 1] if i else 0:self.ends[i]].decode("utf-8")
-
-
-class Coded:
-    """種類の少ない文字列（品詞）の並び。番号の配列と、番号 → 文字列の表で持つ。"""
-
-    def __init__(self, ids, names):
-        self.ids, self.names = ids, names
-
-    def __len__(self):
-        return len(self.ids)
-
-    def __getitem__(self, i):
-        return self.names[self.ids[i]]
-
-
-class View:
-    """seq[index[j]] を j 番目とする並び（bisect で引くため）。"""
-
-    def __init__(self, seq, index):
-        self.seq, self.index = seq, index
-
-    def __len__(self):
-        return len(self.index)
-
-    def __getitem__(self, j):
-        return self.seq[self.index[j]]
-
-
-class ReadingIndex:
-    """読み → 語 id の並び。語 id を読みの順に並べた配列と、読み → その範囲で持つ。"""
-
-    def __init__(self, order, readings):
-        self.order, self.spans, self.starts = array("i", order), {}, array("i")
-        k, n = 0, len(order)
-        while k < n:
-            reading, j = readings[order[k]], k + 1
-            while j < n and readings[order[j]] == reading:
-                j += 1
-            self.spans[reading] = (k << 20) | (j - k)
-            self.starts.append(k)
-            k = j
-        self.starts.append(n)
-
-    def ranges(self):
-        """読みごとの範囲 (始め, 終わり) を、読みの順に。"""
-        for a, b in zip(self.starts, self.starts[1:]):
-            yield a, b
-
-    def get(self, reading, default=None):
-        span = self.spans.get(reading)
-        if span is None:
-            return default
-        start = span >> 20
-        return self.order[start:start + (span & 0xFFFFF)]
-
-    def __getitem__(self, reading):
-        found = self.get(reading)
-        if found is None:
-            raise KeyError(reading)
-        return found
 
 
 def kata(s):
@@ -351,8 +275,11 @@ class Store:
 
 
 class Engine:
-    def __init__(self, dict_dir, run, data, store_dir, ckpt=None, verify_rounds=6, verify_margin=1.0):
+    def __init__(self, dict_dir, run, data, store_dir, ckpt=None, verify_rounds=6, verify_margin=1.0,
+                 cache=dictfile.CACHE, bits=None, mlx_cache_mb=MLX_CACHE_MB):
         self.verify_rounds = verify_rounds
+        self.cache = cache
+        self.bits = bits
         self.verify_margin = verify_margin  # 直した案は、モデルの確からしさがこれだけ（対数で）上回るときだけ採る
         self.load_dict(dict_dir)
         self.tokenizer = Tokenizer.from_file(str(data / "tokenizer.json"))
@@ -367,95 +294,22 @@ class Engine:
         else:
             self.ckpt = ckpt or (run / "latest").read_text().strip()
             self.model.load_weights(str(run / self.ckpt / "model.safetensors"))
+        if bits:  # 線形層の重みを bits ビットにする。埋め込み（出力にも使う）はそのまま（elvezjp/ixv-lm#1）
+            nn.quantize(self.model, group_size=64, bits=bits, class_predicate=lambda _, m: isinstance(m, nn.Linear))
+        mx.eval(self.model.parameters())
+        # MLX は使い終えたメモリを、次の計算のために取っておく。取っておく量に上限を付ける（elvezjp/ixv-lm#1）
+        mx.set_cache_limit(mlx_cache_mb * 2 ** 20)
+        mx.clear_cache()
         self.sudachi = Dictionary(dict="core").tokenizer(mode=SplitMode.C)
         self.store = Store(store_dir)
 
     # ---------- 辞書 ----------
     def load_dict(self, folder):
-        """辞書を読む。55 万語と 553 万組の 2-gram を、Python の str、list、dict ではなく、
-        バイト列と配列で持つ。中身と引いた結果は同じで、メモリが少なくて済む（elvezjp/ixv-lm#1）。"""
-        surfaces, readings, pos_ids, pos_names = Strings(), Strings(), array("H"), {}
-        counts = array("q")
-        with (folder / "words.tsv").open(encoding="utf-8") as f:
-            for line in f:
-                i, s, r, p, n = line.rstrip("\n").split("\t")
-                surfaces.append(s)
-                readings.append(r)
-                pos_ids.append(pos_names.setdefault(p, len(pos_names)))
-                counts.append(int(n))
-        surfaces.freeze()
-        readings.freeze()
-        n = len(surfaces)
-        self.surface, self.reading = surfaces, readings
-        self.pos = Coded(pos_ids, list(pos_names))
-        counts = np.frombuffer(counts, dtype=np.int64).astype(np.float64)
-        total = counts[1:].sum()
-        self.logp_uni = np.log(np.maximum(counts, 1) / total)
-        self.count = counts
-
-        # 読みから語：読みの順に並べた語 id（同じ読みの中は id の順）と、読み → その範囲
-        order = sorted(range(1, n), key=readings.__getitem__)
-        self.by_reading = ReadingIndex(order, readings)
-
-        # 予測変換：読みが 2 字以上で、くっつく品詞でない語を、（読み、表層）ごとに回数を足して、（読み、表層）の順に並べる
-        attach = {pos_names[p] for p in ATTACH if p in pos_names}
-        pred_word, pred_count = array("i"), array("d")
-        for a, b in self.by_reading.ranges():
-            reading = readings[order[a]]
-            if len(reading) < 2:
-                continue
-            group = [i for i in order[a:b] if pos_ids[i] not in attach]
-            group.sort(key=surfaces.__getitem__)  # 安定な並べ替えなので、同じ表層の中は id の順のまま
-            last = None
-            for i in group:
-                surface = surfaces[i]
-                if surface == last:
-                    pred_count[-1] += counts[i]
-                else:
-                    pred_word.append(i)
-                    pred_count.append(counts[i])
-                    last = surface
-        self.predict_word, self.predict_count = pred_word, pred_count
-        self.predict_keys = View(readings, pred_word)
-
-        # 2-gram：鍵（前の語 × 語の数 ＋ 語）を小さい順に並べた配列と、回数の配列。二分探索で引く
-        bigrams = np.load(folder / "bigrams.npy", mmap_mode="r")
-        self.n_words = n
-        keys = bigrams[:, 0] * n + bigrams[:, 1]
-        sort = np.argsort(keys, kind="stable")
-        self.bigram_keys = array("q", keys[sort].astype(np.int64).tobytes())
-        self.bigram_counts = array("q", np.asarray(bigrams[:, 2])[sort].astype(np.int64).tobytes())
-        del keys, sort
-
-        # 同じ表層・品詞で読みだけ違う語（明日：アス、アシタ）は、つながりの回数を、いちばん多い読みのものから借りる
-        canon = array("i", [0]) * n
-        by_surface = sorted(range(1, n), key=surfaces.__getitem__)  # 安定。同じ表層の中は id の順
-        k = 0
-        while k < len(by_surface):
-            surface, top, j = surfaces[by_surface[k]], {}, k
-            while j < len(by_surface) and surfaces[by_surface[j]] == surface:
-                i = by_surface[j]
-                p = pos_ids[i]
-                if p not in top or counts[i] > counts[top[p]]:
-                    top[p] = i
-                j += 1
-            for i in by_surface[k:j]:
-                canon[i] = top[pos_ids[i]]
-            k = j
-        self.canon = canon
-        del by_surface
-        followers = np.bincount(bigrams[:, 0], minlength=n).astype(np.float64)
-        follow_count = np.bincount(bigrams[:, 0], weights=bigrams[:, 2], minlength=n)
-        self.follow_types = followers
-        self.follow_total = follow_count
-
-    def bigram(self, key, default=None):
-        """2-gram の回数。無ければ default。"""
-        keys = self.bigram_keys
-        j = bisect.bisect_left(keys, key)
-        if j < len(keys) and keys[j] == key:
-            return self.bigram_counts[j]
-        return default
+        """辞書を、mmap で開けるファイルの形（ime/dictfile.py）にして開く。無ければ初回だけ作る（elvezjp/ixv-lm#1）。"""
+        self.dict = dictfile.Dictionary(dictfile.ensure(folder, self.cache))
+        for name in ("n_words", "surface", "reading", "pos", "count", "logp_uni", "canon", "by_reading",
+                     "predict_word", "predict_count", "predict_keys", "follow_types", "follow_total"):
+            setattr(self, name, getattr(self.dict, name))
 
     def logp(self, prev, word):
         """Witten-Bell で 1-gram と混ぜた 2-gram の確からしさ（対数）。"""
@@ -464,10 +318,10 @@ class Engine:
         uni = math.exp(self.logp_uni[word])
         if c == 0:
             return math.log(uni)
-        count = self.bigram(prev * self.n_words + word)
+        count = self.dict.bigram(prev, word)
         if count is None:
             share = self.count[word] / max(self.count[self.canon[word]], 1)
-            count = self.bigram(prev * self.n_words + self.canon[word], 0) * min(share, 1.0)
+            count = self.dict.bigram(prev, self.canon[word], 0) * min(share, 1.0)
         return math.log((count + t * uni) / (c + t))
 
     def lookup(self, kana, start):

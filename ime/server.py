@@ -39,6 +39,8 @@ def main():
     parser.add_argument("--store", type=Path, default=Path.home() / "Library/Application Support/IXVKanji",
                         help="学習とユーザー辞書の置き場所")
     parser.add_argument("--port", type=int, default=18190)
+    parser.add_argument("--bits", type=int, choices=[0, 4, 8], default=8,
+                        help="線形層の重みのビット数。0 は量子化しない。8 は量子化しないものと変換が同じだった（elvezjp/ixv-lm#1）")
     parser.add_argument("--device", choices=["auto", "cpu", "gpu"], default="auto")
     parser.add_argument("--gpu", action="store_true", help="--device gpu と同じ（前の書き方）")
     args = parser.parse_args()
@@ -61,7 +63,7 @@ def main():
         return name
 
     pick_device()
-    engine = Engine(args.dict, args.run, args.data, args.store, args.ckpt)
+    engine = Engine(args.dict, args.run, args.data, args.store, args.ckpt, bits=args.bits or None)
 
     home = str(Path.home())
 
@@ -70,7 +72,7 @@ def main():
 
     def status():
         return {"ckpt": engine.ckpt, "run": short(args.run), "dict": short(args.dict), "device": device["name"],
-                "device_setting": args.device, "store": short(args.store), "port": args.port}
+                "device_setting": args.device, "store": short(args.store), "port": args.port, "bits": args.bits}
 
     hosts = {f"127.0.0.1:{args.port}", f"localhost:{args.port}"}
     max_body = 64 * 1024

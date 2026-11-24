@@ -31,16 +31,17 @@ def main():
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--margin", type=float, default=1.0, help="検算で直した案を採る差（ime/engine.py）")
     parser.add_argument("--gpu", action="store_true")
+    parser.add_argument("--bits", type=int, choices=[0, 4, 8], default=0, help="線形層の重みのビット数（ime/server.py）。0 は量子化しない")
     args = parser.parse_args()
     if not args.gpu:
         mx.set_default_device(mx.cpu)
     store = Path(tempfile.mkdtemp())
-    engine = Engine(args.dict, args.run, args.data, store, verify_margin=args.margin)
+    engine = Engine(args.dict, args.run, args.data, store, verify_margin=args.margin, bits=args.bits or None)
     items = json.loads(args.items.read_text())
     if args.limit:
         items = items[:args.limit]
     args.out.mkdir(parents=True, exist_ok=True)
-    summary = {"dict": str(args.dict), "ckpt": engine.ckpt, "margin": args.margin}
+    summary = {"dict": str(args.dict), "ckpt": engine.ckpt, "margin": args.margin, "bits": args.bits}
     for rounds in args.rounds:
         engine.verify_rounds = rounds
         rows, start = [], time.time()
