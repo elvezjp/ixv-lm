@@ -7,6 +7,10 @@
 会話の形：ユーザー「前：<左の文脈>\n読み：<カタカナ>」、アシスタント「<変換結果>」（train/eval_kanji.py の --chat と同じ）。
 AJIMEE-Bench も Wikipedia から作られているので、問題の文や答えを含む文は外す。
 読みが怪しい文（英字や数字を含む、読みが取れない語がある）は使わない。
+
+話し言葉を足すとき（2026-11-25）：--quotes で会話の「」の中だけを文として拾う（青空文庫の小説の会話など）。
+--modern-only で、旧仮名づかいの文書（ゐ、ゑ、でせう、だらう、やうに などを含む）を飛ばす。
+--source は、出力の source に書く名前。
 """
 import argparse
 import json
@@ -21,6 +25,8 @@ from sudachipy import Dictionary, SplitMode
 KATAKANA = re.compile(r"^[ァ-ヶー]+$")
 SKIP = re.compile(r"[A-Za-zＡ-Ｚａ-ｚ0-9０-９ \t]")
 SYMBOL_POS = ("補助記号", "空白")
+QUOTE = re.compile(r"「([^「」]{2,200})」")
+OLD_KANA = re.compile(r"[ゐゑヰヱ]|でせう|だらう|やうに|さうして|かうして|ませう|いふ")
 
 
 def readings(tokenizer, sentence):
@@ -50,6 +56,9 @@ def main():
     parser.add_argument("--max-chars", type=int, default=80)
     parser.add_argument("--max-target", type=int, default=40, help="変換する部分の長さの上限（字）")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--source", default="wikipedia-ja", help="出力の source に書く名前")
+    parser.add_argument("--quotes", action="store_true", help="会話の「」の中だけを文として拾う")
+    parser.add_argument("--modern-only", action="store_true", help="旧仮名づかいの文書を飛ばす")
     args = parser.parse_args()
 
     rng = np.random.default_rng(args.seed)
@@ -68,9 +77,16 @@ def main():
                     break
                 if rng.random() >= args.take:
                     continue
+                if args.modern_only and OLD_KANA.search(text):
+                    stats["skip_old_kana"] += 1
+                    continue
                 stats["docs"] += 1
-                sentences = [s.strip() + "。" for line in text.splitlines() for s in line.split("。")
-                             if args.min_chars <= len(s.strip()) + 1 <= args.max_chars]
+                if args.quotes:  # 会話は「？」「！」でも切り、終わりの記号はそのまま（「。」を足さない）
+                    sentences = [s.strip() for q in QUOTE.findall(text) for s in re.split(r"(?<=[。？！])", q)
+                                 if args.min_chars <= len(s.strip()) <= args.max_chars]
+                else:
+                    sentences = [s.strip() + "。" for line in text.splitlines() for s in line.split("。")
+                                 if args.min_chars <= len(s.strip()) + 1 <= args.max_chars]
                 for i in rng.permutation(len(sentences))[:args.per_doc]:
                     s = sentences[i]
                     if SKIP.search(s):
@@ -95,7 +111,7 @@ def main():
                         continue
                     row = {"messages": [{"role": "user", "content": f"前：{context}\n読み：{kana}"},
                                         {"role": "assistant", "content": target}],
-                           "source": "wikipedia-ja"}
+                           "source": args.source}
                     f.write(json.dumps(row, ensure_ascii=False) + "\n")
                     written += 1
                     stats["with_context"] += bool(context)
