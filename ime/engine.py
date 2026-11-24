@@ -395,8 +395,8 @@ class Engine:
     def prompt(self, context, kana):
         return self.tokenizer.encode(f"<|ctx|>{context[-40:]}<|read|>{kana}<|out|>").ids
 
-    def model_check(self, context, kana, draft):
-        """下書きを 1 回の計算で検算する。最初に食い違った位置と、モデルの字を返す（そろえば None）。"""
+    def model_check(self, context, kana, draft, start=0):
+        """下書きを 1 回の計算で検算する。start 字目より後ろで最初に食い違った位置と、モデルの字を返す（そろえば None）。"""
         prompt = self.prompt(context, kana)
         ids = self.tokenizer.encode(draft).ids
         unk = self.tokenizer.token_to_id("<|unk|>")
@@ -405,7 +405,7 @@ class Engine:
         pos = 0
         for i, token in enumerate(ids):
             piece = self.tokenizer.decode([token])
-            if token != unk and best[i] != token:
+            if pos >= start and token != unk and best[i] != token:
                 guess = self.tokenizer.decode([best[i]])
                 return pos, guess if best[i] != self.eot else None
             pos += len(piece)
@@ -460,18 +460,21 @@ class Engine:
         if not found:
             return [(hira(kana), None, len(kana))]
         path = found[0][1]
+        start = 0  # これより前の食い違いは、直した案を採らなかったもの
         for _ in range(self.verify_rounds):
             text = "".join(p[0] for p in path)
-            check = self.model_check(context, kana, text)
+            check = self.model_check(context, kana, text, start)
             if check is None or check[1] is None:
                 break
             pos, char = check
             again = self.search(kana, prefix=text[:pos] + char, n=1)
-            if not again:
-                break
-            new_text = "".join(p[0] for p in again[0][1])
-            if self.model_score(context, kana, new_text) <= self.model_score(context, kana, text) + self.verify_margin:
-                break  # 直した案のほうが、モデルから見ても確からしくなければ採らない
+            new_text = "".join(p[0] for p in again[0][1]) if again else None
+            if new_text is None or \
+                    self.model_score(context, kana, new_text) <= self.model_score(context, kana, text) + self.verify_margin:
+                # 直した案のほうが、モデルから見ても確からしくなければ採らない。
+                # 検算はやめずに、後ろの食い違いへ進む（表記の揺れで止まって、文末の間違いが残らないように。elvezjp/ixv-lm#3）
+                start = pos + 1
+                continue
             path = again[0][1]
         return path
 
