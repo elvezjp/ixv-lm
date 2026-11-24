@@ -1,0 +1,28 @@
+{
+  "name": "v1",
+  "note": "v1 の事前学習の混合（2026-11-08）。0.1B を数日回して約45億トークンを読む想定で、繰り返しなしで足りる量を用意する。tokens は目安で、ファイル単位で切るので前後する",
+  "vocab_size": 65536,
+  "tokenizer_sample_mb": {
+    "fineweb2-edu-ja": 400,
+    "finepdfs-ja": 150,
+    "wikipedia-ja": 150,
+    "aozora": 50,
+    "egov-law": 50,
+    "elvez-books": 1,
+    "elvez-sdd-repo": 1,
+    "elvez-screen-driven": 1,
+    "raw:finemath": 120,
+    "raw:github-archive": 80
+  },
+  "sources": [
+    {"id": "fineweb2-edu-ja", "tokens": 3500000000},
+    {"id": "finepdfs-ja", "tokens": 1000000000},
+    {"id": "wikipedia-ja"},
+    {"id": "aozora"},
+    {"id": "egov-law"},
+    {"id": "elvez-books", "repeat": 10, "val": false},
+    {"id": "elvez-sdd-repo", "repeat": 10, "val": false},
+    {"id": "elvez-screen-driven", "repeat": 10, "val": false}
+  ],
+  "val_tokens_per_source": 200000
+}

@@ -1,0 +1,692 @@
+# IXV-LM の学習データ台帳。本番に入れるデータは、すべてここに記録して人が承認する。
+# 検査は .venv/bin/python corpus/check_ledger.py で行う。
+#
+# 本プロジェクトの方針は README の「データの方針」に書いた。中核は自社の文章で、著作権に問題のないものを加える。Claude の生成した文章は入れない。
+#
+# class   A 標準採用 / B 採用時に人が承認する。使わないものは [[excluded]] に書く
+# status  候補 / 実験のみ（本番には未承認）/ 承認済み / 使用中
+# redistribution  L1 学習・検索・再配布が可 / L2 再配布不可 / L3 検索提示も再配布も不可（LLM-jp-4 の分類）
+# 空欄は未確認。分からないことを推測で埋めない。
+
+[meta]
+total_target_b = 100     # 学習トークンの目標（10億単位）
+updated = "2026-11-07"
+
+# 配分の初期案。実験に基づかないので、0.1B の実験で確定させる。単位は 10億トークン
+[budget]
+ja-edu = 28
+ja-pdf = 8
+ja-recent = 6
+ja-wiki = 3
+ja-public = 5
+dev-code = 18
+dev-issue = 6
+dev-commit = 3
+dev-ja-tech = 3
+en-edu = 15
+en-math = 3
+own = 2     # 調査の初期案。書籍、社内の文章、YouTube の量を測ったあとで見直す
+sft = 0     # 事前学習の外。会話の追加学習（SFT）に使うデータ
+
+[[source]]
+id = "fineweb2-edu-ja"
+name = "FineWeb2 Edu Japanese"
+slot = "ja-edu"
+class = "B"
+status = "候補"
+url = "https://huggingface.co/datasets/hotchpotch/fineweb-2-edu-japanese"
+version = "revision 180ca004c6a89b590daaad86cb062a07a5353c69（data/ の本体のみ、326.6GB）"
+acquired = "2026-11-07"
+license = "ODC-By 1.0"
+extra_terms = "CommonCrawl 利用規約"
+redistribution = ""
+pii = ""
+filters = "score 3.0 以上（2026-11-08 決定、約430億トークン。2.5〜3.0 は元データに残す）。ノイズ除去、PII、ドメイン除外は未定"
+helper_models = "分類器の教師は DeepSeek-API（deepseek-chat）のスコア。ノイズ除去の教師は DeepSeek-R1-Distill-Qwen-32B-Japanese"
+used_tokens_b = 0
+used_checkpoints = []
+approver = "エルブズ"
+approved = "2026-11-07"
+notes = "調査の配分案は A だが、DeepSeek の API 規約が未確認なので B とした（2026-11-07 に確認）。FineWeb-2 を自前の分類器で再採点する案もある"
+
+[[source]]
+id = "finepdfs-ja"
+name = "FinePDFs 日本語"
+slot = "ja-pdf"
+class = "A"
+status = "候補"
+url = "https://huggingface.co/datasets/HuggingFaceFW/finepdfs"
+version = "revision 220bac3acbf07789502c621d2d33952f51ac7f86（data/jpn_Jpan、192.7GB）"
+acquired = "2026-11-07"
+license = "ODC-By 1.0"
+extra_terms = "CommonCrawl 利用規約"
+redistribution = ""
+pii = ""
+filters = "教育スコア（fw_edu_scores のページ平均）1.2 以上（2026-11-08 決定、約95億トークン）。OCR 崩れの除去は未定（日本語には OCR 品質の指標がない）"
+helper_models = ""
+used_tokens_b = 0
+used_checkpoints = []
+approver = "エルブズ"
+approved = "2026-11-07"
+notes = "1文書の平均は約3,700トークン（計算値）で、32K の長文の候補"
+
+[[source]]
+id = "cc-diff-ja"
+name = "CommonCrawl 自前抽出（2024年5月以降の差分）"
+slot = "ja-recent"
+class = "A"
+status = "候補"
+url = "https://commoncrawl.org/"
+version = ""
+acquired = ""
+license = ""
+extra_terms = "CommonCrawl 利用規約"
+redistribution = ""
+pii = ""
+filters = "Swallow 型ルール、既存データとの重複除去"
+helper_models = ""
+used_tokens_b = 0
+used_checkpoints = []
+approver = ""
+approved = ""
+notes = "ja-recent は、これか hplt3-ja のどちらかを使う。収量は 1 セグメントの実測まで分からない"
+
+[[source]]
+id = "hplt3-ja"
+name = "HPLT 3.0 日本語の上位"
+slot = "ja-recent"
+class = "A"
+status = "候補"
+url = "https://data.hplt-project.org/three/sorted/jpn_Jpan.map"
+version = "HPLT 3.0 jpn_Jpan の WDS 10 と 9（6 ファイル、224.6GB）"
+acquired = ""
+license = "パッケージのみ CC0。本文の権利は持たないと明記"
+extra_terms = "法令順守は利用者の責任"
+redistribution = ""
+pii = "PII の注釈あり"
+filters = "品質の上位、既存データとの重複除去"
+helper_models = ""
+used_tokens_b = 0
+used_checkpoints = []
+approver = "エルブズ"
+approved = "2026-11-07"
+notes = "表の bytes と characters の値が近く、bytes の定義が不明"
+
+[[source]]
+id = "wikipedia-ja"
+name = "日本語版 Wikipedia"
+slot = "ja-wiki"
+class = "B"
+status = "承認済み"
+url = "https://huggingface.co/datasets/wikimedia/wikipedia"
+version = "20231101.ja（revision b04c8d1ceb2f5cd4588862100d08de323dccfbaa）"
+acquired = "2026-11-06"
+license = "CC BY-SA 3.0 / GFDL"
+extra_terms = ""
+redistribution = "L1（CC BY-SA の条件つき）"
+pii = "未処理"
+filters = "なし（実験では全文を使用）"
+helper_models = ""
+used_tokens_b = 0
+used_checkpoints = []
+approver = "エルブズ"
+approved = "2026-11-07"
+notes = "SA が MIT の重みに及ぶかは未確定という調査の論点を聞いたうえで、入れると判断した（2026-11-07）。実験の学習（kda-0.1b-wiki-ja-metal など）は used_tokens_b に数えない"
+
+[[source]]
+id = "wikipedia-ja-20261101"
+name = "日本語版 Wikipedia（公式ダンプ 2026-11-01）"
+slot = "ja-wiki"
+class = "B"
+status = "実験のみ"
+url = "https://dumps.wikimedia.org/jawiki/20261101/"
+version = "jawiki-20261101-pages-articles.xml.bz2（4,782,309,586 バイト、sha1 e1a1173c8ae5a844ab5fe89ff457f9c7b178b68d）"
+acquired = "2026-11-24"
+license = "CC BY-SA 4.0（2023 年 6 月より前の書き込みは CC BY-SA 3.0）/ GFDL"
+extra_terms = ""
+redistribution = "L1（CC BY-SA の条件つき）"
+pii = "未処理"
+filters = "corpus/clean.py の docs_jawiki_dump。標準名前空間の記事だけ、転送ページを除く。テンプレート・表・脚注を落とし、仮リンク・読み仮名・lang などは中の語を残す"
+helper_models = ""
+used_tokens_b = 0
+used_checkpoints = []
+approver = ""
+approved = ""
+notes = "かな漢字変換の辞書と段 1 の学習データを、新しい言葉が入るよう取り直す（2026-11-24 決定）。20231101（HF）は古い"
+
+[[source]]
+id = "aozora"
+name = "青空文庫（保護期間満了のみ）"
+slot = "ja-public"
+class = "A"
+status = "候補"
+url = "https://www.aozora.gr.jp/guide/kijyunn.html"
+version = "公式の作品一覧 list_person_all_extended_utf8（2026-11-07 取得）、作品著作権フラグなしの 17,347 作品のうち 17,343 作品を取得（4 件は 404）"
+acquired = "2026-11-07"
+license = "保護期間満了作品は自由"
+extra_terms = "書誌・入力者情報を消さないよう希望。権利存続作品は別扱い"
+redistribution = ""
+pii = ""
+filters = "権利状態の確認（翻訳者の権利にも注意）"
+helper_models = ""
+used_tokens_b = 0
+used_checkpoints = []
+approver = "エルブズ"
+approved = "2026-11-07"
+notes = ""
+
+[[source]]
+id = "egov-law"
+name = "e-Gov 法令データ"
+slot = "ja-public"
+class = "A"
+status = "候補"
+url = "https://laws.e-gov.go.jp/bulkdownload/"
+version = "all_xml.zip（2026-11-07 時点の現行法令、sha256 a8cf45bc7fe62ad5b2c85db74102ec9e2348bb6b34dffb767e7f38b8d44e9cc9）"
+acquired = "2026-11-07"
+license = "公共データ利用規約（PDL1.0）。法令は著作権法13条で権利の対象外"
+extra_terms = "https://www.e-gov.go.jp/terms"
+redistribution = ""
+pii = ""
+filters = "権利状態の確認"
+helper_models = ""
+used_tokens_b = 0
+used_checkpoints = []
+approver = "エルブズ"
+approved = "2026-11-07"
+notes = "PDL1.0 の本文と著作権法13条の条文は未確認"
+
+[[source]]
+id = "kokkai"
+name = "国会議事録（国会会議録検索システム）"
+slot = "ja-public"
+class = "A"
+status = "候補"
+url = "https://kokkai.ndl.go.jp/api.html"
+version = "1947-01-01 から 2026-11-06 までの全会議録"
+acquired = ""
+license = "発言の著作権は各発言者。国立国会図書館のコンテンツ利用規約に従う"
+extra_terms = "電子計算機による情報解析、政治上の演説の利用は法の条件に従い許諾不要（公式の説明）。機械的な取得は数秒あける"
+redistribution = ""
+pii = "発言者の個人名を含む。処理は学習前に決める"
+filters = "権利状態の確認"
+helper_models = ""
+used_tokens_b = 0
+used_checkpoints = []
+approver = "エルブズ"
+approved = "2026-11-07"
+notes = "調査で見ていた Hugging Face のミラーは消えていたので、公式の API から取る"
+
+[[source]]
+id = "kaken"
+name = "KAKEN"
+slot = "ja-public"
+class = "A"
+status = "候補"
+url = "https://support.nii.ac.jp/ja/kaken/about/terms"
+version = ""
+acquired = ""
+license = "文部科学省ウェブサイト利用規約に準拠。2015年度以前の報告書の一部は作成者に著作権があり、NII の学術コンテンツサービス利用規程に従う"
+extra_terms = ""
+redistribution = ""
+pii = ""
+filters = "権利状態の確認"
+helper_models = ""
+used_tokens_b = 0
+used_checkpoints = []
+approver = ""
+approved = ""
+notes = "後回し（2026-11-07）。API にはアプリケーション ID の登録が要り、サイトは検索ページのロボット取得を禁じている。一括取得の案内は見つからない"
+
+[[source]]
+id = "patent-ja"
+name = "特許の抽出"
+slot = "ja-public"
+class = "A"
+status = "候補"
+url = "https://www.jpo.go.jp/system/laws/sesaku/data/download.html"
+version = ""
+acquired = ""
+license = ""
+extra_terms = "一括ダウンロードサービス利用規約。検索の要約では第2条が利用者自身の利用と産業財産権に関係する目的に限ると定める。本文は未読"
+redistribution = ""
+pii = ""
+filters = "権利状態の確認、分野を限定"
+helper_models = ""
+used_tokens_b = 0
+used_checkpoints = []
+approver = ""
+approved = ""
+notes = "後回し（2026-11-07）。無償だが申込書の送付が要る。言語モデルの学習が目的に入るかが不明。進めるなら規約の本文を読むか、特許庁に問い合わせる"
+
+[[source]]
+id = "stack-edu"
+name = "Stack-Edu（Python、TS/JS、Shell、Markdown など、許諾系のみ）"
+slot = "dev-code"
+class = "B"
+status = "候補"
+url = "https://huggingface.co/datasets/HuggingFaceTB/stack-edu"
+version = "revision eeec5caac5cc3758a18f1d3ba4416837a9ba814c（ID の一覧のみ。Python、TypeScript、JavaScript、Shell、Markdown）"
+acquired = ""
+license = "the-stack-v2 に準じる（原ライセンスに従う）"
+extra_terms = ""
+redistribution = ""
+pii = ""
+filters = "license_type が permissive で MIT/BSD/Apache 系のみ。秘密情報の除去"
+helper_models = "分類器は Llama3-70B-Instruct の注釈で学習"
+used_tokens_b = 0
+used_checkpoints = []
+approver = ""
+approved = ""
+notes = "ライセンスなしとコピーレフトは除外する。Hugging Face にあるのは ID の一覧だけで、本文は Software Heritage の S3 から取る。本文の取得には AWS の認証と、一括取得の合意の確認が要る。ID の一覧の取得は承認（2026-11-07）。本文は未承認。5 言語の ID は 6,765 万件、うち permissive は 1,743 万件、71.6GB"
+
+[[source]]
+id = "github-archive"
+name = "GitHub Issue/PR（Common Pile filtered GitHub Archive）"
+slot = "dev-issue"
+class = "B"
+status = "候補"
+url = "https://huggingface.co/datasets/common-pile/github_archive_filtered"
+version = "revision 52282fe96670254bdc0d44dd718ee7a27210ee85（圧縮 15.1GB、2,336 万スレッド）"
+acquired = "2026-11-07"
+license = "リポジトリのライセンスを継承（文書ごとに記録）"
+extra_terms = ""
+redistribution = ""
+pii = "メールアドレス、ユーザー名、秘密情報のマスクが必須"
+filters = "リポジトリのライセンス、ボット除去、PII マスク"
+helper_models = ""
+used_tokens_b = 0
+used_checkpoints = []
+approver = "エルブズ"
+approved = "2026-11-07"
+notes = "ライセンスの誤判定の可能性が注記されている"
+
+[[source]]
+id = "commitpack"
+name = "CommitPack（許諾系のみ）"
+slot = "dev-commit"
+class = "B"
+status = "候補"
+url = "https://huggingface.co/datasets/bigcode/commitpack"
+version = "commitpack revision 5eee2c845bf88dbffcafedb6e80d2a72a43fe575 の Python、TypeScript、Shell と、commitpackft revision fc56fe33c030c6daa414c2b112c932b8eed085e6（合計 307.4GB）"
+acquired = ""
+license = "ファイルごとの原ライセンス"
+extra_terms = ""
+redistribution = ""
+pii = ""
+filters = "license 列で再フィルタ（agpl-3.0 が含まれるため）"
+helper_models = ""
+used_tokens_b = 0
+used_checkpoints = []
+approver = "エルブズ"
+approved = "2026-11-07"
+notes = "全量は 3,798GB。枠の 3B に対して十分なので絞った"
+
+[[source]]
+id = "ja-tech-docs"
+name = "日本語の技術文書"
+slot = "dev-ja-tech"
+class = "B"
+status = "候補"
+url = ""
+version = ""
+acquired = ""
+license = ""
+extra_terms = ""
+redistribution = ""
+pii = ""
+filters = ""
+helper_models = ""
+used_tokens_b = 0
+used_checkpoints = []
+approver = ""
+approved = ""
+notes = "具体的な入手先は未定"
+
+[[source]]
+id = "swallowcode-v2"
+name = "SwallowCode-v2"
+slot = "dev-ja-tech"
+class = "B"
+status = "候補"
+url = "https://huggingface.co/datasets/tokyotech-llm/swallow-code-v2"
+version = "revision a98c80e3cc4150450f30b9eb8dd9d1e0097d1cfa の stage5-auto-format/python/medium、150 ファイルのうち先頭 10 ファイル"
+acquired = ""
+license = "Apache 2.0"
+extra_terms = "The-Stack-v2 の条件にも従う"
+redistribution = ""
+pii = ""
+filters = ""
+helper_models = "Qwen3-235B-A22B-Instruct による書き換え"
+used_tokens_b = 0
+used_checkpoints = []
+approver = "エルブズ"
+approved = "2026-11-07"
+notes = "Qwen が書き換えたコードだが、出所を確認のうえ入れてよいと判断した（2026-11-07）。Qwen の書き換えを開示する。v1 は Llama 3.3 Community License なので使わない"
+
+[[source]]
+id = "fineweb-edu"
+name = "FineWeb-Edu（公式サンプル sample/100BT）"
+slot = "en-edu"
+class = "B"
+status = "候補"
+url = "https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu"
+version = "revision 87f09149ef4734204d70ed1d046ddc9ca3f2b8f9 の sample/100BT（286.4GB）"
+acquired = ""
+license = "ODC-By"
+extra_terms = "CommonCrawl 利用規約"
+redistribution = ""
+pii = ""
+filters = "スコア3以上の高層"
+helper_models = "分類器は Llama3-70B-Instruct の注釈50万件で学習"
+used_tokens_b = 0
+used_checkpoints = []
+approver = "エルブズ"
+approved = "2026-11-07"
+notes = "調査の配分案は A だが、同じ調査の B の定義（Llama 注釈の選別データ）に当たるので B とした（2026-11-07 に確認）"
+
+[[source]]
+id = "finemath"
+name = "FineMath（finemath-4plus）"
+slot = "en-math"
+class = "B"
+status = "候補"
+url = "https://huggingface.co/datasets/HuggingFaceTB/finemath"
+version = "revision e92b25a616738fe95dc186b64dfb19f9c8525594 の finemath-4plus（18.4GB、96 億トークン）"
+acquired = "2026-11-07"
+license = "ODC-By"
+extra_terms = "CommonCrawl 由来"
+redistribution = ""
+pii = ""
+filters = ""
+helper_models = "分類器は Llama-3.1-70B-Instruct の注釈で学習"
+used_tokens_b = 0
+used_checkpoints = []
+approver = "エルブズ"
+approved = "2026-11-07"
+notes = "調査の配分案は A だが、Llama 注釈の選別データなので B とした（2026-11-07 に確認）"
+
+[[source]]
+id = "elvez-books"
+name = "エルブズと田中の書籍『仕様駆動開発 実践入門』"
+slot = "own"
+class = "A"
+status = "候補"
+url = ""
+version = "コミット 74d10d7 の 20251225最終版/chapters（16 ファイル、約 57 万字）"
+acquired = "2026-11-07"
+license = "自社（権利はエルブズと田中が持つ）"
+extra_terms = ""
+redistribution = ""
+pii = ""
+filters = ""
+helper_models = ""
+used_tokens_b = 0
+used_checkpoints = []
+approver = "エルブズ"
+approved = "2026-11-07"
+notes = "自社データの中心。AI が文章を書けるようになる前に人が書いたもの。長文なので 32K の学習にも使える。マークダウンのゲラがある。1206 版の原稿と未使用原稿は入れない"
+
+[[source]]
+id = "elvez-sdd-repo"
+name = "『仕様駆動開発 実践入門』の練習用リポジトリ SDD（書籍に入れられなかった文章）"
+slot = "own"
+class = "A"
+status = "承認済み"
+url = "https://github.com/elvezjp/SDD"
+version = "コミット f448eea40467f22d9343ba74ce2f5ae3b3482c19 の docs、examples、README_ja.md"
+acquired = "2026-11-07"
+license = "MIT（田中秀樹）"
+extra_terms = ""
+redistribution = "L1"
+pii = "なし（公開リポジトリ）"
+filters = "なし"
+helper_models = ""
+used_tokens_b = 0
+used_checkpoints = []
+approver = "エルブズ"
+approved = "2026-11-07"
+notes = "spec-ai-writer のコードは入れない"
+
+[[source]]
+id = "elvez-screen-driven"
+name = "エルブズ開発ガイド SDD（画面中心主義、スクリーンドリブンデベロップメント）"
+slot = "own"
+class = "A"
+status = "候補"
+url = ""
+version = "2024 年の docx 5 件。開発ガイド、FAQ、実践編、実践編追加版、ドリルセット"
+acquired = "2026-11-07"
+license = "自社（権利はエルブズと田中が持つ）"
+extra_terms = ""
+redistribution = ""
+pii = ""
+filters = ""
+helper_models = ""
+used_tokens_b = 0
+used_checkpoints = []
+approver = ""
+approved = ""
+notes = "ここの SDD は仕様駆動開発ではなく、画面中心主義。仕様駆動開発の前の、エルブズの標準開発手法。本文は合計約 4.2 万字で、実践編と追加版は重複が多いと見られる"
+
+[[source]]
+id = "elvez-internal"
+name = "エルブズ社内で書いてきた文章"
+slot = "own"
+class = "A"
+status = "候補"
+url = ""
+version = ""
+acquired = ""
+license = "自社（権利はエルブズと田中が持つ）"
+extra_terms = ""
+redistribution = ""
+pii = ""
+filters = ""
+helper_models = ""
+used_tokens_b = 0
+used_checkpoints = []
+approver = ""
+approved = ""
+notes = "量は未集計"
+
+[[source]]
+id = "elvez-youtube"
+name = "YouTube チャンネル「ソフトウェアの作り方チャンネル Tech千一夜」"
+slot = "own"
+class = "A"
+status = "候補"
+url = "https://www.youtube.com/channel/UCASQiIkKCsZmaJHc4SDxyVg"
+version = ""
+acquired = ""
+license = "自社（権利はエルブズと田中が持つ）"
+extra_terms = ""
+redistribution = ""
+pii = ""
+filters = ""
+helper_models = ""
+used_tokens_b = 0
+used_checkpoints = []
+approver = ""
+approved = ""
+notes = "本数と量は未集計。YouTube Data API で取る想定。動画の一覧、タイトル、説明文、コメントは API キーで取れる。字幕の本文はチャンネル所有者の OAuth 認証で取れる。音声は API では取れない。字幕の取得は 1 件 200 ユニット、1 日の上限は既定で 10,000 ユニットなので 1 日 50 本弱（2026-11-07 時点の Claude の知識で、最新の値は未確認）。自動生成の字幕は誤字が混ざる"
+
+[[source]]
+id = "hdkworks-blog"
+name = "田中のブログ hdkworks blog（論文紹介と OSS 紹介を除く）"
+slot = "own"
+class = "A"
+status = "承認済み"
+url = "https://hdkworks.com/"
+version = "2026-11-08 に書き出した posts-20261108.json（1,130 本、sha256 8e7e86c9…）"
+acquired = "2026-11-08"
+license = "自社（田中と社員が書いた。権利はエルブズと田中が持つ）"
+extra_terms = ""
+redistribution = "L1"
+pii = "公開済みの記事。人名を含む記事がある。未処理"
+filters = "題名に「論文紹介」「OSS紹介」を含む 362 本を除外（LLM で書いた記事）。本文 20 字未満の 11 本を除外。題名を本文の先頭に付ける"
+helper_models = ""
+used_tokens_b = 0
+used_checkpoints = []
+approver = "エルブズ"
+approved = "2026-11-08"
+notes = "加工後 757 本、約 58 万字。2014〜2022 は田中本人、2023 からの [Tech#] は社員が書いた。論文紹介と OSS 紹介以外は確認済み（2026-11-08）。v1 の学習には入っていない。次にデータを作り直すときに混ぜる"
+
+[[source]]
+id = "elvez-own"
+name = "Elvez の OSS、ツール呼び出し形式の人手データ"
+slot = "own"
+class = "A"
+status = "候補"
+url = ""
+version = ""
+acquired = ""
+license = "自社"
+extra_terms = ""
+redistribution = ""
+pii = ""
+filters = "商用モデルの生成物を除外、重み増し"
+helper_models = ""
+used_tokens_b = 0
+used_checkpoints = []
+approver = ""
+approved = ""
+notes = ""
+
+[[source]]
+id = "llm-jp-instructions"
+name = "llm-jp-instructions（人手で書いた日本語の指示データ）"
+slot = "sft"
+class = "A"
+status = "実験のみ"
+url = "https://huggingface.co/datasets/llm-jp/llm-jp-instructions"
+version = "revision 93d6a615c1e0836668cfb682273124624b103cda（v1.0、train 300・dev 300・test 400）"
+acquired = "2026-11-08"
+license = "CC BY 4.0"
+extra_terms = ""
+redistribution = ""
+pii = ""
+filters = "train と dev を学習に使い、test は評価に残す"
+helper_models = "なし（人手で作成とデータの説明にある）"
+used_tokens_b = 0
+used_checkpoints = []
+approver = ""
+approved = ""
+notes = "2026-11-08、会話の追加学習を体験するために選んだ"
+
+[[source]]
+id = "oasst2-ja"
+name = "oasst2 日本語訳（kunishou/oasst2-135k-ja）"
+slot = "sft"
+class = "B"
+status = "実験のみ"
+url = "https://huggingface.co/datasets/kunishou/oasst2-135k-ja"
+version = "revision af218f0f269812551436c1b659ab8089ca20286a（oasst2_135k_ja.json、213.5MB）"
+acquired = "2026-11-08"
+license = "Apache-2.0"
+extra_terms = "元の OpenAssistant/oasst2 も Apache-2.0"
+redistribution = ""
+pii = ""
+filters = ""
+helper_models = "DeepL（機械翻訳）"
+used_tokens_b = 0
+used_checkpoints = []
+approver = ""
+approved = ""
+notes = "2026-11-08、会話の追加学習を体験するために選んだ。人が書いた会話の機械翻訳で、翻訳調になる。r5 からは、アシスタントがほかの名前で名乗る会話（2,502 件）を corpus/filter_sft_identity.py で外した oasst2-ja-noself.jsonl を使う（2026-11-21）"
+
+[[source]]
+id = "tool-sft"
+name = "ツール呼び出しの組み立てデータ（read、ls、grep）"
+slot = "sft"
+class = "A"
+status = "候補"
+url = ""
+version = "corpus/make_tool_sft.py と corpus/tool_sft_templates.toml（2026-11-12。型のファイルは公開していない）"
+acquired = "2026-11-12"
+license = "自社。材料は台帳で承認済みの elvez-sdd-repo、hdkworks-blog、wikipedia-ja"
+extra_terms = "wikipedia-ja の本文がツールの結果に入るので、CC BY-SA の条件を引き継ぐ"
+redistribution = ""
+pii = "材料に準じる"
+filters = "ツールの結果が 1,500 字を超える問題は作らない。先頭がコメントのファイルは先頭の行の問題に使わない"
+helper_models = "DeepSeek V4.1 Flash（MIT、IXV で実行）が文の型の一部を書いた（【案 IXV】の印）。Claude の文は入れていない（Claude の例文と同じだった型は消した）"
+used_tokens_b = 0
+used_checkpoints = []
+approver = ""
+approved = ""
+notes = "依頼の型の一部は、人が打った依頼の文から選んだ（【案】の印。穴にしたところと切り落としたところだけ変えた）。手引きは docs/tool-templates-guide.md"
+
+[[source]]
+id = "self-intro"
+name = "自己紹介の会話（名前、作った人、できること、あいさつ、わからないとき、断るとき）"
+slot = "sft"
+class = "B"
+status = "候補"
+url = ""
+version = "corpus/self_intro.txt と corpus/make_self_intro.py（2026-11-18。self_intro.txt は公開していない）。self-intro-v1.jsonl は 80 件。r4 は ×10、r5 は ×50"
+acquired = "2026-11-18"
+license = "答えは自社で書いた。質問の一部は oasst2-ja のユーザーの発言（Apache-2.0、DeepL の訳）"
+extra_terms = "oasst2-ja と同じく、公開のときは oasst2-ja から選んだ質問（# oasst2-ja の印）を外すか確かめる"
+redistribution = ""
+pii = "なし"
+filters = "質問は選ぶだけ（「 :D」を1か所削った）。答えは書いた文のまま"
+helper_models = "DeepL（oasst2-ja の質問の訳）"
+used_tokens_b = 0
+used_checkpoints = []
+approver = ""
+approved = ""
+notes = "r3 のチャットで「君はだれ？」に「嘘つき」と答えたのを受けて作った（2026-11-18 決定）。[名前] の3つの質問は Claude の例から選んで使うと決めた。印の付いた質問は、r3 のチャットで人が打った言葉"
+
+[[source]]
+id = "kanji-v1"
+name = "かな漢字変換の会話（Wikipedia の文に読みを振った「読み → 文」、段 0）"
+slot = "sft"
+class = "B"
+status = "実験のみ"
+url = ""
+version = "corpus/make_kanji_sft.py（2026-11-23、seed 0）。kanji-v1.jsonl は 189,047 件、うち左の文脈つき 92,938 件。段 1 用の kanji-v2.jsonl（2026-11-24、Wikipedia 全体、seed 1）は 2,743,246 件"
+acquired = "2026-11-23"
+license = "文は日本語版 Wikipedia（CC BY-SA 3.0 / GFDL）。読みは Sudachi（sudachipy 0.7.0、sudachidict-core 20261015、Apache 2.0）"
+extra_terms = "段 0 は試し。公開する重みには入れるかを別に決める"
+redistribution = ""
+pii = "Wikipedia と同じ"
+filters = "英字・数字・空白を含む文、読みの取れない語のある文、かなだけの部分は外した。AJIMEE-Bench の問題の文・答えを含む文を外した（7 件）"
+helper_models = "なし（形態素解析の辞書だけ）"
+used_tokens_b = 0
+used_checkpoints = []
+approver = ""
+approved = ""
+notes = "2026-11-23 決定（段 0 を準備）。評価は AJIMEE-Bench（CC BY-SA 3.0、評価だけに使い、学習には入れない）"
+
+# 使わないもの（C）
+[[excluded]]
+name = "商用 API の出力全般（Claude、GPT、Gemini）"
+reason = "規約が競合モデルの開発を制限している"
+
+[[excluded]]
+name = "Llama の出力を含むもの（SwallowCode v1 など）"
+reason = "ライセンスの条件が MIT 公開と合わない"
+
+[[excluded]]
+name = "旧 Gemma の出力"
+reason = "ライセンスの条件が MIT 公開と合わない"
+
+[[excluded]]
+name = "Nemotron の NVIDIA 契約データ"
+reason = "用途を内部の学習に限定し、オープンソースライセンスの対象にする利用を禁止している"
+
+[[excluded]]
+name = "DCLM-Baseline"
+reason = "本文は研究利用専用で、本番モデル向けではないと書かれている"
+
+[[excluded]]
+name = "有料記事、ID 認証の背後、有償 API の迂回、海賊版サイト"
+reason = "著作権法30条の4の範囲を超えるおそれがある"
+
+[[excluded]]
+name = "AI クローラを複数ブロックしている出版社・新聞社の収集"
+reason = "ブロックの回避にあたるおそれがある"
+
+[[excluded]]
+name = "GPL/AGPL などコピーレフトとライセンス不明のコード"
+reason = "MIT の公開と説明が難しくなる"

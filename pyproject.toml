@@ -1,0 +1,16 @@
+[project]
+name = "ixv-lm"
+version = "0.0.0"
+description = "IXV-LM の学習基盤"
+requires-python = ">=3.12"
+dependencies = [
+    "mlx",
+    "numpy",
+    "pyarrow",
+    "sudachidict-core>=20261015",
+    "sudachipy>=0.7.0",
+    "tokenizers",
+]
+
+[tool.uv]
+package = false

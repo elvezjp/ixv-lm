@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+
+# 学習データ、トークン列、チェックポイントはリポジトリに入れない
+*.parquet
+*.bin
+*.npy
+*.npz
+*.safetensors
+runs/
+data/
+
+# 入力メソッドのビルド
+ime/macos/build/
