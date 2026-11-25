@@ -18,7 +18,12 @@ compete with frontier models. It aims to be easy to use on small machines, and o
 The project documents are written in Japanese. The Japanese README ([README_ja.md](README_ja.md)) is the primary one;
 this page is its English summary.
 
-> **Status.** Research and early experiments. The training code (MLX, Apple Silicon) trains Transformer and KDA-hybrid
+> **A research project.** IXV-LM is a research project in which Elvez studies small language models and Japanese
+> input built on them. The code, weights and dictionary are published as they are, with no warranty of operation or
+> accuracy, and without support. What you may do with them is set by their licenses (code: MIT; weights and
+> dictionary: CC BY-SA 4.0).
+
+> **Status (2026-11-25).** Research and early experiments. The training code (MLX, Apple Silicon) trains Transformer and KDA-hybrid
 > models from 10M to 0.3B parameters on one Mac Studio (M3 Ultra); see [experiments/](experiments/). The goals below are
 > targets, not achieved results. The first published model is the kana-kanji conversion model below.
 
@@ -31,7 +36,7 @@ Elvez set this direction: IXV-LM finds its use in Japanese text input.
 **IXV かな漢字** (IXV Kana-Kanji) is a macOS input method that runs on what this project trained: a 0.1B
 character-level model and a dictionary counted from Japanese Wikipedia. The dictionary builds a draft that matches the
 typed reading, and the model checks it. On AJIMEE-Bench (200 items) the top-1 accuracy is 0.645 with the dictionary
-alone and 0.680 with the model's check.
+alone and 0.730 with the model's check (2026-11-25).
 
 - Code: [ime/](ime/README.md) (conversion server in Python, input method in Swift, built without Xcode)
 - Weights and dictionary: [elvezjp/IXV-LM-Kanji-0.1B](https://huggingface.co/elvezjp/IXV-LM-Kanji-0.1B) on Hugging

@@ -14,7 +14,9 @@
 
 8GB 程度のメモリのマシンでも小気味よく動く、開発支援向けのモデルを目指します。フロンティアモデルと張り合うことは目指しません。手軽に、小さなマシンで使えるものを、みんなに開放することを目指します。
 
-> **現在の段階（2026-11-07）:** 構想と調査の段階です。最小の学習コードで 10M パラメータの Transformer（[記録](experiments/20261106-mini-10m/README.md)）と KDA ハイブリッド（[記録](experiments/20261106-kda-reference/README.md)）を回し、KDA ハイブリッドで日本語 Wikipedia 全量の学習を途中まで進めました（[記録](experiments/20261106-wiki-full-kda/README.md)）。M3 Ultra では 0.1B のモデルで日本語 Wikipedia を1周ぶん学習しました（[記録](experiments/20261107-wiki-kda-0.1b/README.md)）。公開できるモデルと推論エンジンはまだありません。以下は目標であり、達成済みの性能ではありません。
+> **研究目的のプロジェクトです。** IXV-LM は、小さな言語モデルと、それを使った日本語入力を、エルブズが調べるための研究プロジェクトです。コード、重み、辞書は現状のまま公開します。動作や精度の保証はなく、サポートもしません。使ってよい範囲は、それぞれのライセンス（コードは MIT、重みと辞書は CC BY-SA 4.0）のとおりです。
+
+> **現在の段階（2026-11-25）:** 研究と初期の実験の段階です。学習コード（MLX、Apple Silicon）で、10M から 0.3B パラメータの Transformer と KDA ハイブリッドを、Mac Studio（M3 Ultra）1 台で学習しています（[experiments/](experiments/)）。最初に公開したモデルは、下のかな漢字変換のモデルです。以下の「狙うところ」「できるようにすること」は目標であり、達成済みの性能ではありません。
 
 ## 狙うところ
 
@@ -29,7 +31,7 @@
 
 > いずれにせよ、IXV-LMというのは、日本語入力にその生きる道を見つけたということで。（2026-11-24）
 
-学習マシン（M3 Ultra）で学習した文字単位の 0.1B と、Wikipedia から数えた辞書で、日本語入力「IXV かな漢字」が動いた（[ime/README.md](ime/README.md)）。いまの重みと辞書は Wikipedia 由来なので、コードとは分けて、CC BY-SA 4.0 で Hugging Face の [elvezjp/IXV-LM-Kanji-0.1B](https://huggingface.co/elvezjp/IXV-LM-Kanji-0.1B) に置く（2026-11-24、ゲート付き。いまはプライベート）。MIT で出せる版を作るかは、まだ決めていない。
+学習マシン（M3 Ultra）で学習した文字単位の 0.1B と、Wikipedia から数えた辞書で、日本語入力「IXV かな漢字」が動いた（[ime/README.md](ime/README.md)）。AJIMEE-Bench（200 問）の 1 位の正解率は、辞書だけで 0.645、モデルで確かめると 0.730（2026-11-25）。重みと辞書は Wikipedia 由来なので、コードとは分けて、CC BY-SA 4.0 で Hugging Face の [elvezjp/IXV-LM-Kanji-0.1B](https://huggingface.co/elvezjp/IXV-LM-Kanji-0.1B) に置く（ゲート付き）。MIT で出せる版を作るかは、まだ決めていない。
 
 ## できるようにすること
 
