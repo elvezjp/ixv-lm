@@ -8,7 +8,8 @@ import InputMethodKit
 // - 数字の 1〜9 で候補を選び、次の文節へ（最後の文節なら確定）。Enter で全部を確定。
 // - Esc で変換をやめてかなに戻る（もう一度で消す）。削除でも変換をやめてかなに戻る。
 // - F6 ひらがな、F7 カタカナ、F8 半角カタカナ、F9 全角英字、F10 半角英字。
-// - 英数キーで直接入力、かなキーで日本語入力。
+// - 英数キーで直接入力（英字のモード）、かなキーで日本語入力（日本語のモード）。モードを macOS に知らせるので、
+//   ほかの日本語入力と同じく、切り替えたときに「あ」「A」の吹き出しが出る。
 // - 打っている途中は予測変換を出す。Tab で選び（もう一度で次）、Enter で確定。
 // - 設定は、入力メニュー（メニューバーの「漢」）の「設定…」から（Settings.swift）。
 // 確定した変換のうち、使う人が候補を選び直した文節だけを ime/server.py に覚えさせる（学習、elvezjp/ixv-lm#11）。
@@ -30,7 +31,9 @@ class IXVInputController: IMKInputController {
     private var typed = ""           // 打ったキーそのまま（F9、F10 用）
     private var segments: [Segment] = []
     private var focus = 0
-    private var direct = false       // 英数キーで直接入力
+    private var direct = false       // 英数キーで直接入力（英字のモード）
+    private static let japaneseMode = "jp.co.elvez.inputmethod.IXVKanji.Japanese"
+    private static let romanMode = "jp.co.elvez.inputmethod.IXVKanji.Roman"
     private var predictions: [String] = []
     private var predIndex = -1       // Tab で選んでいる予測の番号
     private var live = ""            // ライブ変換の表示
@@ -80,9 +83,11 @@ class IXVInputController: IMKInputController {
         case 102: // 英数
             if composing { commit(client) }
             direct = true
+            client.selectMode(Self.romanMode)
             return true
         case 104: // かな
             direct = false
+            client.selectMode(Self.japaneseMode)
             return true
         default:
             break
@@ -350,6 +355,17 @@ class IXVInputController: IMKInputController {
         refining = 0
         generation += 1
         CandidatesPanel.shared.hide()
+    }
+
+    // 入力メニューやキーでモードが替わったとき（selectMode の後にも呼ばれる）
+    override func setValue(_ value: Any!, forTag tag: Int, client sender: Any!) {
+        guard tag == kTextServiceInputModePropertyTag, let mode = value as? String else {
+            super.setValue(value, forTag: tag, client: sender)
+            return
+        }
+        let roman = mode == Self.romanMode
+        if roman && !direct, composing || converting, let client = sender as? IMKTextInput { commit(client) }
+        direct = roman
     }
 
     override func commitComposition(_ sender: Any!) {
