@@ -113,9 +113,9 @@ azooKey（macOS 版）と Zenzai はお手本として読むだけで、コー�
 
 ## 配る形（Hugging Face）
 
-重みと辞書は `elvezjp/IXV-LM-Kanji-0.1B` に置く（2026-11-24 決定：名前はこれ、ゲート付き、まずプライベート）。重みと辞書は CC BY-SA 4.0、コードはこのリポジトリの MIT。
+重みと辞書は `elvezjp/IXV-LM-Kanji-0.1B` に置く（2026-11-24 決定：名前はこれ、ゲート付き、まずプライベート）。いまは公開している（ゲート付き）。置いてあるのは、全部のデータを混ぜて最初から学習した版（[記録](../experiments/20261125-kanji-talk-b1/README.md)）。重みと辞書は CC BY-SA 4.0、コードはこのリポジトリの MIT。
 
-- 取り出し：`ime/export_release.py`。学習用のチェックポイントから重みだけを bfloat16 で書き、手元のパスは書き出さない。取り出したもので AJIMEE-Bench が元と同じ（検算つき 0.68）ことを確かめた。
+- 取り出し：`ime/export_release.py`。学習用のチェックポイントから重みだけを bfloat16 で書き、手元のパスは書き出さない。最初に取り出したとき（段 1）は、取り出したもので AJIMEE-Bench が元と同じ（検算つき 0.68）ことを確かめた。いま置いている版は、取り出したもので検算つき 0.730（float32 のチェックポイントでは 0.735。1 問だけ違う）。
 - モデルカードと NOTICE は `~/ixv-lm-data/release/IXV-LM-Kanji-0.1B/` にあり、そのまま上げる。
 - 使う人は `hf download` で取り、`current.json` の dict に `…/dict`、run と data にそのフォルダを書く。engine.py は、フォルダの直下に model.safetensors があれば、それを読む。
 
@@ -129,7 +129,9 @@ azooKey（macOS 版）と Zenzai はお手本として読むだけで、コー�
 | 辞書の下書きだけ（ほかの読みを足した dict-v2） | 0.650 | 0.051 |
 | 段 1 のモデルだけ（ckpt-13000） | 0.62 | 0.064 |
 | 辞書の下書き（dict-v2）を段 1（ckpt-13000）が検算 | 0.685 | 0.042 |
-| 最新の Wikipedia で作り直した辞書（dict-v3）と段 1（kanji-char-0.1b-w2611）、いま | **0.68** | **0.044** |
+| 最新の Wikipedia で作り直した辞書（dict-v3）と段 1（kanji-char-0.1b-w2611） | 0.68 | 0.044 |
+| dict-v3 と、段 1 に話し言葉を追加学習したもの（kanji-char-0.1b-talk1、[記録](../experiments/20261125-kanji-talk/README.md)） | 0.705 | — |
+| dict-v3 と、全部を混ぜて最初から学習したもの（kanji-char-0.1b-talk-b1、[記録](../experiments/20261125-kanji-talk-b1/README.md)）、いま Hugging Face に置いている版 | **0.730** | **0.034** |
 
 - 辞書も AJIMEE-Bench も Wikipedia から作っている。問題の文そのものは辞書から外したが、同じ記事のほかの文は入っている。
 - 数とカタカナ語の重みは、AJIMEE-Bench の外れ方を見ながら決めた。この 200 問は、もう手つかずの物差しではない。
