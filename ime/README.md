@@ -1,5 +1,9 @@
 # IXV かな漢字（この Mac で学習したもので動く日本語入力）
 
+<img src="icon.png" alt="IXV かな漢字のアイコン。IXV の立方体のマークから「あ」を抜いた形" width="160">
+
+メニューバーのアイコン（[macos/tools/make_icon.swift](macos/tools/make_icon.swift) の案 a）を、同じ描き方で 800px に描き、エルブズの青（#3D5D9D）で塗ったもの。お知らせや Hugging Face で使う。メニューバーの実物は、16pt の白黒のテンプレート画像。
+
 かな漢字変換の段 3（段 0 は [記録](../experiments/20261123-kanji-stage0/README.md)、段 1 は [記録](../experiments/20261124-kanji-stage1/README.md)）。2026-11-24 決定。
 azooKey（macOS 版）と Zenzai はお手本として読むだけで、コードは借りていない。辞書もモデルも、この Mac で Wikipedia から作った。
 
