@@ -79,6 +79,8 @@ NUMBER_WORDS = [
     ("ピャク", 100, "u"), ("セン", 1000, "u"), ("ゼン", 1000, "u"),
     ("マン", 10 ** 4, "b"), ("オク", 10 ** 8, "b"), ("チョウ", 10 ** 12, "b"),
 ]
+# 濁る・半濁る位の読みと、その前に来てよい数（さんぜん、さんびゃく、ろっぴゃく、はっぴゃく）
+VOICED_UNITS = {"ゼン": {3}, "ビャク": {3}, "ピャク": {6, 8}}
 
 
 def read_numbers(kana, start):
@@ -99,6 +101,8 @@ def read_numbers(kana, start):
                     found.append((end, total + block + value))  # 一の位として終わる
                 walk(end, total, block, value, words + 1, has_unit)
             elif kind == "u":
+                if reading in VOICED_UNITS and digit not in VOICED_UNITS[reading]:
+                    continue  # ゼン・ビャク・ピャクは、サン・ロッ・ハッの後だけ（「ぜんかく」を 1000 角にしない）
                 d = 1 if digit is None else digit
                 if block % (value * 10) and block % (value * 10) >= value:
                     continue

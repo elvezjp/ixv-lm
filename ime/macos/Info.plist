@@ -41,6 +41,7 @@
 		<string>Hira</string>
 		<string>Kana</string>
 		<string>Hani</string>
+		<string>Latn</string>
 	</array>
 	<key>ComponentInputModeDict</key>
 	<dict>
@@ -75,10 +76,38 @@
 					<string>Hani</string>
 				</array>
 			</dict>
+			<key>jp.co.elvez.inputmethod.IXVKanji.Roman</key>
+			<dict>
+				<key>TISInputSourceID</key>
+				<string>jp.co.elvez.inputmethod.IXVKanji.Roman</string>
+				<key>TISIntendedLanguage</key>
+				<string>en</string>
+				<key>tsInputModeScriptKey</key>
+				<string>smRoman</string>
+				<key>TISIconIsTemplate</key>
+				<true/>
+				<key>tsInputModeMenuIconFileKey</key>
+				<string>icon-roman.tiff</string>
+				<key>tsInputModeAlternateMenuIconFileKey</key>
+				<string>icon-roman.tiff</string>
+				<key>tsInputModePaletteIconFileKey</key>
+				<string>icon-roman.tiff</string>
+				<key>tsInputModePrimaryInScriptKey</key>
+				<true/>
+				<key>tsInputModeIsVisibleKey</key>
+				<true/>
+				<key>tsInputModeDefaultStateKey</key>
+				<true/>
+				<key>tsInputModeCharacterRepertoireKey</key>
+				<array>
+					<string>Latn</string>
+				</array>
+			</dict>
 		</dict>
 		<key>tsVisibleInputModeOrderedArrayKey</key>
 		<array>
 			<string>jp.co.elvez.inputmethod.IXVKanji.Japanese</string>
+			<string>jp.co.elvez.inputmethod.IXVKanji.Roman</string>
 		</array>
 	</dict>
 </dict>

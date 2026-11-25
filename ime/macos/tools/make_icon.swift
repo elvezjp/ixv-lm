@@ -1,6 +1,6 @@
 // メニューバーの入力ソースのアイコンを icon.tiff に書く。IXV の立方体のマーク（ixv-mark.svg）から「あ」を抜いたもの（案 a、2026-11-24 決定）。
 // 透明の地に黒で描く。Info.plist の TISIconIsTemplate で、macOS が地の明るさに合わせて色を変える（濃さは不透明度で出す）。
-// 使い方: swift make_icon.swift 出力.tiff [案 a|b|c] [見本.png] [仮名]
+// 使い方: swift make_icon.swift 出力.tiff [案 a|b|c] [見本.png か -] [仮名（英字のモードは A）]
 import AppKit
 
 let out = CommandLine.arguments[1]
@@ -8,7 +8,7 @@ let variant = CommandLine.arguments.count > 2 ? CommandLine.arguments[2] : "a"
 let kana = CommandLine.arguments.count > 4 ? CommandLine.arguments[4] : "あ"
 // 立方体の幅（16pt のうち）。元のマークの比率なら 13.9
 let cubeWidth = CommandLine.arguments.count > 5 ? CGFloat(Double(CommandLine.arguments[5])!) : 13.9
-let preview = CommandLine.arguments.count > 3 ? CommandLine.arguments[3] : nil
+let preview = CommandLine.arguments.count > 3 && CommandLine.arguments[3] != "-" ? CommandLine.arguments[3] : nil  // 「-」は見本なし
 
 // ixv-mark.svg の 3 面（viewBox 174×200、y は下向き）
 let top: [CGPoint] = [.init(x: 0.8, y: 50.5), .init(x: 87, y: 100.3), .init(x: 173.3, y: 50.5), .init(x: 87, y: 0.7)]
